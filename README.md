@@ -22,88 +22,89 @@ Feel free to add or correct me on anything. Please spare the numbering and forma
 6. enum types are not part of the ABI, they are just a solidity abstraction
 7. Delete keyword is simply a reassignment of elements to their default values (ie.zero)
 8. .call bypasses function existence check, type checking and argument packing
-9. The evm considers a call to non-existing contract to always succeed, so there is a check of extcodesize > 0 when making an external call. But call, staticcall, delegatecall, send, transfer do not include this check
-10. On receiving funds from a selfdestruct / coinbase miner reward, the contract can not react to it, and it doesn’t require a contract to have receive or fallback functions.
+9. The evm considers a call to non-existing contract to always succeed, so there is a check of extcodesize > 0 when making an external call. But call, staticcall, delegatecall, send, transfer do not include this check.(meaning they do not have this check by default. extcodesize is an EVM opcode that returns the size of the code at a given address. If extcodesize of an address is greater than 0, it means that a contract exists at that address.In practice, to ensure a call is being made to an actual contract, developers might include a check to see if extcodesize > 0. If the size is zero, it implies there is no contract at the address, and the call can be considered invalid or unintended)
+10.  On receiving funds from a selfdestruct / coinbase miner reward, the contract can not react to it, and it doesn’t require a contract to have receive or fallback functions.
 11. extcodesize > 0 check is skipped by the compiler if the function call expects return data. the ABI decoder will catch the case of a non-existing contract Because such calls are followed up by abi decoding the return data, which has a check for `returndatasize` is being at least a non-zero number. So for empty contracts, they would always revert in the end.
-12. Always send 1 wei to precompiled contracts to activate them when testing in private blockchains, otherwise it may lead to OOG
-13. Functions called from within an `unchecked` block do not inherit the property. Bitwise operators do not perform overflow or underflow checks
-14. After a failed call, Do not assume that the error message is coming directly from the called contract: The error might have happened deeper down in the call chain and the called contract just forwarded it (bubbling up of errors)
-15. Calling a function on a different contract (instance) will perform an EVM function call and thus switch the context such that state variables in the calling contract are inaccessible during that call (except if you use delegatecall)
-16. After contract creation, The deployed code does not include the constructor code or internal functions only called from the constructor
-17. Dont use this.f inside constructor
-18. Internal is the default visibility level for state variables.
-19. Internal function calls do not create an EVM message call. They are called using simple jump statements. Same for functions of inherited contracts. 
-20. If you have a `public` state variable of array type, then you can only retrieve single elements of the array via the generated getter function
-21. Without a payable keyword in function declaration, it will auto reject all ether sent to it. It will revert. 
-22. Modifiers can also be defined in libraries but their use is limited to functions of the same library
-23. Multiple modifiers are applied to a function by specifying them in a whitespace-separated list and are evaluated in the order presented. **Modifier Order Matters**
-24. The `_` symbol can appear in the modifier multiple times. Each occurrence is replaced with the function body. Symbols introduced in the modifier are not visible in the function
-25. For values of immutable variables, 32 bytes are reserved in the code, even if they would fit in fewer bytes
-26. The compiler does not reserve a storage slot for constant and immutable variables, and every occurrence is replaced by the respective value directly in the code. 
-27. The code of free functions is included in all contracts that call them, similar to internal library functions (free functions are those that exist at file level, outside of a contract. 
-28. Functions defined outside a contract are still always executed in the context of a contract. They still can call other contracts, send them Ether and destroy the contract that called them
-29. the opcode `STATICCALL` is used when `view` functions are called, For library `view`
+   
+13. Always send 1 wei to precompiled contracts to activate them when testing in private blockchains, otherwise it may lead to OOG
+14. Functions called from within an `unchecked` block do not inherit the property. Bitwise operators do not perform overflow or underflow checks
+15. After a failed call, Do not assume that the error message is coming directly from the called contract: The error might have happened deeper down in the call chain and the called contract just forwarded it (bubbling up of errors)
+16. Calling a function on a different contract (instance) will perform an EVM function call and thus switch the context such that state variables in the calling contract are inaccessible during that call (except if you use delegatecall)
+17. After contract creation, The deployed code does not include the constructor code or internal functions only called from the constructor
+18. Dont use this.f inside constructor
+19. Internal is the default visibility level for state variables.
+20. Internal function calls do not create an EVM message call. They are called using simple jump statements. Same for functions of inherited contracts. 
+21. If you have a `public` state variable of array type, then you can only retrieve single elements of the array via the generated getter function
+22. Without a payable keyword in function declaration, it will auto reject all ether sent to it. It will revert. 
+23. Modifiers can also be defined in libraries but their use is limited to functions of the same library
+24. Multiple modifiers are applied to a function by specifying them in a whitespace-separated list and are evaluated in the order presented. **Modifier Order Matters**
+25. The `_` symbol can appear in the modifier multiple times. Each occurrence is replaced with the function body. Symbols introduced in the modifier are not visible in the function
+26. For values of immutable variables, 32 bytes are reserved in the code, even if they would fit in fewer bytes
+27. The compiler does not reserve a storage slot for constant and immutable variables, and every occurrence is replaced by the respective value directly in the code. 
+28. The code of free functions is included in all contracts that call them, similar to internal library functions (free functions are those that exist at file level, outside of a contract. 
+29. Functions defined outside a contract are still always executed in the context of a contract. They still can call other contracts, send them Ether and destroy the contract that called them
+30. the opcode `STATICCALL` is used when `view` functions are called, For library `view`
  functions `DELEGATECALL` is used(if interacting with already deployed library). This means library `view` functions do not have run-time checks that prevent state modifications ?? Omg
-30. For pure functions, the opcode `STATICCALL` is used, which does not guarantee that the state is not read, but at least that it is not modified. It is not possible to prevent functions from reading the state at the level of the EVM.
-31. The data returned from fallback function will not be ABI-encoded. Instead it will be returned without modifications (not even padding) WTF
-32. Return parameters are not taken into account for overload resolution for function calls to overloaded functions, only function arguments are matched. (Overload resolution is nothing in practice because function dispatcher will match the selectors) 
-33. Events are inheritable. The Log and its event data is not accessible from within contracts (not even from the contract that created them.
-34. it is possible to “fake” the signature (topic0) of another event using an anonymous event
-35. Errors are inheritable. the revert data of inner calls is propagated back through the chain of external calls by default. Low-level calls do not throw an exception. 
-36. When a contract inherits from other contracts, only a single contract is created on the blockchain, and the code from all the base contracts is compiled into the created contract. This means that all internal calls to functions of base contracts also just use internal function calls (`super.f(..)` will use JUMP and not a message call
-37. The overriding function may only change the visibility of the overridden function from `external` to `public` .The mutability may be changed to a more strict one following the order: `nonpayable`can be overridden by `view`and `pure`. `view`can be overridden by `pure`. `payable`is an exception and cannot be changed to any other mutability
-38. Functions without implementation(that need to be overriden somewhere) have to be marked `virtual` outside of interfaces. In interfaces, all functions are automatically considered `virtual`
-39. Public state variables can override external functions if the parameter and return types of the function matches the getter function of the variable. They themselves cannot be overriden
-40. Before the constructor code is executed, state variables are initialized to their specified value if you initialize them inline, or their [default value](https://docs.soliditylang.org/en/v0.8.17/control-structures.html#default-value) if you do not.
-41. The order in which the base classes are given in the `is` directive is important: You have to list the direct base contracts in the order from “most base-like” to “most derived”
-42. Interfaces cannot have any functions implemented, can only inherit from other interfaces, all declared functions should be external, can be inherited by contracts
-43.  Libraries are deployed only once at a specific address and their code is reused using the `DELEGATECALL` feature of the EVM. This means that if library functions are called, their code is executed in the context of the calling contract, i.e. `this` points to the calling contract, and especially the storage from the calling contract can be accessed
-44. Library functions can only be called directly (i.e. without the use of `DELEGATECALL`
+31. For pure functions, the opcode `STATICCALL` is used, which does not guarantee that the state is not read, but at least that it is not modified. It is not possible to prevent functions from reading the state at the level of the EVM.
+32. The data returned from fallback function will not be ABI-encoded. Instead it will be returned without modifications (not even padding) WTF
+33. Return parameters are not taken into account for overload resolution for function calls to overloaded functions, only function arguments are matched. (Overload resolution is nothing in practice because function dispatcher will match the selectors) 
+34. Events are inheritable. The Log and its event data is not accessible from within contracts (not even from the contract that created them.
+35. it is possible to “fake” the signature (topic0) of another event using an anonymous event
+36. Errors are inheritable. the revert data of inner calls is propagated back through the chain of external calls by default. Low-level calls do not throw an exception. 
+37. When a contract inherits from other contracts, only a single contract is created on the blockchain, and the code from all the base contracts is compiled into the created contract. This means that all internal calls to functions of base contracts also just use internal function calls (`super.f(..)` will use JUMP and not a message call
+38. The overriding function may only change the visibility of the overridden function from `external` to `public` .The mutability may be changed to a more strict one following the order: `nonpayable`can be overridden by `view`and `pure`. `view`can be overridden by `pure`. `payable`is an exception and cannot be changed to any other mutability
+39. Functions without implementation(that need to be overriden somewhere) have to be marked `virtual` outside of interfaces. In interfaces, all functions are automatically considered `virtual`
+40. Public state variables can override external functions if the parameter and return types of the function matches the getter function of the variable. They themselves cannot be overriden
+41. Before the constructor code is executed, state variables are initialized to their specified value if you initialize them inline, or their [default value](https://docs.soliditylang.org/en/v0.8.17/control-structures.html#default-value) if you do not.
+42. The order in which the base classes are given in the `is` directive is important: You have to list the direct base contracts in the order from “most base-like” to “most derived”
+43. Interfaces cannot have any functions implemented, can only inherit from other interfaces, all declared functions should be external, can be inherited by contracts
+44.  Libraries are deployed only once at a specific address and their code is reused using the `DELEGATECALL` feature of the EVM. This means that if library functions are called, their code is executed in the context of the calling contract, i.e. `this` points to the calling contract, and especially the storage from the calling contract can be accessed
+45. Library functions can only be called directly (i.e. without the use of `DELEGATECALL`
 ) if they do not modify the state (view or pure) Omg
-45. Libraries are stateless and undestroyable. Cannot be inherited and cant receive ether
-46. In the EVM, the code of internal library functions that are called from a contract and all functions called from therein will at compile time be included in the calling contract, and a regular `JUMP` call will be used instead of a `DELEGATECALL`. This is case of using library in the same file instead of interacting with already deployed library) Omg
-47. Calling a public library function with `L.f()`results in an external call (`DELEGATECALL`
+46. Libraries are stateless and undestroyable. Cannot be inherited and cant receive ether
+47. In the EVM, the code of internal library functions that are called from a contract and all functions called from therein will at compile time be included in the calling contract, and a regular `JUMP` call will be used instead of a `DELEGATECALL`. This is case of using library in the same file instead of interacting with already deployed library) Omg
+48. Calling a public library function with `L.f()`results in an external call (`DELEGATECALL`
  to be precise). `msg.sender`, `msg.value`and `this` will retain their values in this call
-48. It is possible to obtain the address of a library by converting the library type to the `address`
+49. It is possible to obtain the address of a library by converting the library type to the `address`
  type, i.e. using `address(LibraryName)`
-49. As the compiler does not know the address where the library will be deployed, the compiled hex code will contain placeholders of the form `__$30bbc0abd4d6364515865950d3e0d10953$__`
+50. As the compiler does not know the address where the library will be deployed, the compiled hex code will contain placeholders of the form `__$30bbc0abd4d6364515865950d3e0d10953$__`
 . The placeholder is a 34 character prefix of the hex encoding of the keccak256 hash of the fully qualified library name, which would be for example `libraries/bigint.sol:BigInt`
  if the library was stored in a file called `bigint.sol` in a `libraries/` directory. Such bytecode is incomplete and should not be deployed. Placeholders need to be replaced with actual addresses.
-50. For computing function selector of libraries, the storage pointers in argument encoding is encoded as a `uint256` value referring to the storage slot to which they point
-51. The actual code stored on chain for a library is different from the code reported by the compiler as `deployedBytecode`
-52. In using A for B, all public + internal functions of library A are attached to the type of B
-53.  Inline assembly bypasses several important safety features and checks of Solidity
-54. If you access variables of a type that spans less than 256 bits (for example `uint64`, `address` or `bytes16` ), you cannot make any assumptions about bits not part of the encoding of this type. Especially, do not assume them to be zero (dirty higher order bits )
-55. Most arithmetic operations ignore the fact that types can be shorter than 256 bits, and the higher-order bits are cleaned when necessary
-56. During memory allocation, when you point at a memory location, There is no guarantee that the memory has not been used before and thus you cannot assume that its contents are zero bytes. There is no built-in mechanism to release or free allocated memory
-57. If you annotate an assembly block as memory-safe, but violate one of the memory assumptions, this **will** lead to incorrect and undefined behavior that cannot easily be discovered by testing IDK
-58. Packed encoding of abi can be ambiguous
-59. ecrecover returns zero on error IDK what error ? (In this case it doesn’t actually return zero but the precompile never gets back with a new value so you are left with the default zero address value when you declared the address variable. ie. when we write address a = ecrecover(bla bla), it never gets assigned on erorr and thus remains zero.
-60. Structs and array data always start a new slot, and items following these also start from a new storage slot
-61. Due to their unpredictable size, mappings and dynamically-sized array types cannot be stored “in between” the state variables preceding and following them. Instead, they are considered to occupy only 32 bytes .The elements they contain are stored starting at a different storage slot that is computed using a Keccak-256 hash. For dynamic arrays, this slot stores the number of elements in the array, For mappings, the slot stays empty. 
-62. If the storage location of the dynamic array ends up being a slot p after applying the storage layout rules, this slot stores the number of elements in the array (byte arrays and strings are an exception). Array data is located starting at keccak256(p) and it is laid out in the same way as statically-sized array data would: One element after the other, potentially sharing storage slots if the elements are not longer than 16 bytes
-63. For bytes and string, it is stored together with the length in the same slot. characters are stored in leftmost bytes of the slot and 2 * length is stored at rightmost byte. If the string is greater than 31 bytes,The string is split into 32-byte long chunks and put starting in the slot index calculated by `keccak256(stringDeclarationSlotIndex)` (similar to arrays), and only the length of the string is saved in the string declaration slot index. Then just add 1 to the hash to find remaining data of next 32-byte chunks. 
-64. For short type dynamic arrays, is length byte reserved like bytes and string ? IDK
-65. This means that you can distinguish a short array from a long array by checking if the lowest bit is set: short (not set) and long (set). because IDK the bit math here
-66. Elements in memory arrays in Solidity always occupy multiples of 32 bytes (this is even true for `bytes1[]` , but not for `bytes` and `string`
-67. One should not expect the free memory to point to zeroed out memory
-68. The input data for a function call is assumed to be in the format defined by the [ABI specification](https://docs.soliditylang.org/en/v0.8.17/abi-spec.html#abi). Among others, the ABI specification requires arguments to be padded to multiples of 32 bytes (ABI is just a standardized format for uniform interaction)
-69. Arguments for the constructor of a contract are directly appended at the end of the contract’s creation code, also in ABI encoding. The constructor will access them through a hard-coded offset, and not by using the `codesize` opcode, since this of course changes when appending data to the code
-70. before writing a value to memory, the remaining bits of this value need to be cleared because the memory contents can be used for computing hashes or sent as the data of a message call. Also before writing to storage..   (when a value is shorter than 256 bit, the remaining should be cleaned). The solidity compiler does this for certain operations
-71. If you use inline assembly to access Solidity variables shorter than 256 bits, the compiler does not guarantee that the value is properly cleaned up. Moreover, we do not clean the bits if the immediately following operation is not affected
-72. the Solidity compiler cleans input data when it is loaded onto the stack WTF
-73. The number of runs (`--optimize-runs` ) specifies roughly how often each opcode of the deployed code will be executed across the life-time of the contract. a larger “runs” parameter will produce longer but more gas efficient code. (max 2**32 - 1) and vice versa
-74. The compiler appends by default the IPFS/swarm hash of the metadata file to the end of the runtime bytecode
-75. Since the bytecode of the resulting contract contains the metadata hash by default, any change to the metadata might result in a change of the bytecode. This includes changes to a filename or path, and since the metadata includes a hash of all the sources used, a single whitespace change results in different metadata, and different bytecode
-76. do not rely on this metadata hash sequence to start with `0xa2 0x64 'i' 'p' 'f' 's`
-77. For the ABI spec, We assume that the interface functions of a contract are strongly typed, known at compilation time and static. We assume that all contracts will have the interface definitions of any contracts they call available at compile-time
-78. In function signature, parameter types are listed with a comma, without whitespace
-79. Address payable, contract, enum and struct are not supported by ABI, so they are represented by their respective equivalents (struct as tuple)
-80. `len(a)` is the number of bytes in a binary string `a`. The type of `len(a)`i s assumed to be `uint256` IDK bytes.concat method
-81. In Function argument encoding, uints are padded with zero bytes upto 32 bytes (on the left). bool is encoded as a uint8. Similarly, return types
-82. Events, error returns all are encoded as functions in ABI encoding
-83. Never trust error data. The error data by default bubbles up through the chain of external calls, which means that a contract may receive an error not defined in any of the contracts it calls directly. Furthermore, any contract can fake any error by returning data that matches an error signature, even if the error is not defined anywhere
-84. Through `abi.encodePacked()`, Solidity supports a non-standard packed mode where:
+51. For computing function selector of libraries, the storage pointers in argument encoding is encoded as a `uint256` value referring to the storage slot to which they point
+52. The actual code stored on chain for a library is different from the code reported by the compiler as `deployedBytecode`
+53. In using A for B, all public + internal functions of library A are attached to the type of B
+54.  Inline assembly bypasses several important safety features and checks of Solidity
+55. If you access variables of a type that spans less than 256 bits (for example `uint64`, `address` or `bytes16` ), you cannot make any assumptions about bits not part of the encoding of this type. Especially, do not assume them to be zero (dirty higher order bits )
+56. Most arithmetic operations ignore the fact that types can be shorter than 256 bits, and the higher-order bits are cleaned when necessary
+57. During memory allocation, when you point at a memory location, There is no guarantee that the memory has not been used before and thus you cannot assume that its contents are zero bytes. There is no built-in mechanism to release or free allocated memory
+58. If you annotate an assembly block as memory-safe, but violate one of the memory assumptions, this **will** lead to incorrect and undefined behavior that cannot easily be discovered by testing IDK
+59. Packed encoding of abi can be ambiguous
+60. ecrecover returns zero on error IDK what error ? (In this case it doesn’t actually return zero but the precompile never gets back with a new value so you are left with the default zero address value when you declared the address variable. ie. when we write address a = ecrecover(bla bla), it never gets assigned on erorr and thus remains zero.
+61. Structs and array data always start a new slot, and items following these also start from a new storage slot
+62. Due to their unpredictable size, mappings and dynamically-sized array types cannot be stored “in between” the state variables preceding and following them. Instead, they are considered to occupy only 32 bytes .The elements they contain are stored starting at a different storage slot that is computed using a Keccak-256 hash. For dynamic arrays, this slot stores the number of elements in the array, For mappings, the slot stays empty. 
+63. If the storage location of the dynamic array ends up being a slot p after applying the storage layout rules, this slot stores the number of elements in the array (byte arrays and strings are an exception). Array data is located starting at keccak256(p) and it is laid out in the same way as statically-sized array data would: One element after the other, potentially sharing storage slots if the elements are not longer than 16 bytes
+64. For bytes and string, it is stored together with the length in the same slot. characters are stored in leftmost bytes of the slot and 2 * length is stored at rightmost byte. If the string is greater than 31 bytes,The string is split into 32-byte long chunks and put starting in the slot index calculated by `keccak256(stringDeclarationSlotIndex)` (similar to arrays), and only the length of the string is saved in the string declaration slot index. Then just add 1 to the hash to find remaining data of next 32-byte chunks. 
+65. For short type dynamic arrays, is length byte reserved like bytes and string ? IDK
+66. This means that you can distinguish a short array from a long array by checking if the lowest bit is set: short (not set) and long (set). because IDK the bit math here
+67. Elements in memory arrays in Solidity always occupy multiples of 32 bytes (this is even true for `bytes1[]` , but not for `bytes` and `string`
+68. One should not expect the free memory to point to zeroed out memory
+69. The input data for a function call is assumed to be in the format defined by the [ABI specification](https://docs.soliditylang.org/en/v0.8.17/abi-spec.html#abi). Among others, the ABI specification requires arguments to be padded to multiples of 32 bytes (ABI is just a standardized format for uniform interaction)
+70. Arguments for the constructor of a contract are directly appended at the end of the contract’s creation code, also in ABI encoding. The constructor will access them through a hard-coded offset, and not by using the `codesize` opcode, since this of course changes when appending data to the code
+71. before writing a value to memory, the remaining bits of this value need to be cleared because the memory contents can be used for computing hashes or sent as the data of a message call. Also before writing to storage..   (when a value is shorter than 256 bit, the remaining should be cleaned). The solidity compiler does this for certain operations
+72. If you use inline assembly to access Solidity variables shorter than 256 bits, the compiler does not guarantee that the value is properly cleaned up. Moreover, we do not clean the bits if the immediately following operation is not affected
+73. the Solidity compiler cleans input data when it is loaded onto the stack WTF
+74. The number of runs (`--optimize-runs` ) specifies roughly how often each opcode of the deployed code will be executed across the life-time of the contract. a larger “runs” parameter will produce longer but more gas efficient code. (max 2**32 - 1) and vice versa
+75. The compiler appends by default the IPFS/swarm hash of the metadata file to the end of the runtime bytecode
+76. Since the bytecode of the resulting contract contains the metadata hash by default, any change to the metadata might result in a change of the bytecode. This includes changes to a filename or path, and since the metadata includes a hash of all the sources used, a single whitespace change results in different metadata, and different bytecode
+77. do not rely on this metadata hash sequence to start with `0xa2 0x64 'i' 'p' 'f' 's`
+78. For the ABI spec, We assume that the interface functions of a contract are strongly typed, known at compilation time and static. We assume that all contracts will have the interface definitions of any contracts they call available at compile-time
+79. In function signature, parameter types are listed with a comma, without whitespace
+80. Address payable, contract, enum and struct are not supported by ABI, so they are represented by their respective equivalents (struct as tuple)
+81. `len(a)` is the number of bytes in a binary string `a`. The type of `len(a)`i s assumed to be `uint256` IDK bytes.concat method
+82. In Function argument encoding, uints are padded with zero bytes upto 32 bytes (on the left). bool is encoded as a uint8. Similarly, return types
+83. Events, error returns all are encoded as functions in ABI encoding
+84. Never trust error data. The error data by default bubbles up through the chain of external calls, which means that a contract may receive an error not defined in any of the contracts it calls directly. Furthermore, any contract can fake any error by returning data that matches an error signature, even if the error is not defined anywhere
+85. Through `abi.encodePacked()`, Solidity supports a non-standard packed mode where:
 - types shorter than 32 bytes are concatenated directly, without padding or sign extension
 - dynamic types are encoded in-place and without the length.
 - array elements are padded, but still encoded in-place
